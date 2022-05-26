@@ -1,0 +1,37 @@
+#!/bin/sh
+
+if [ $# -eq 0 ]; then
+  echo "usage: $0 exercise-slug"
+  exit 1
+fi
+
+dir=$1
+
+cd $dir
+
+status=0
+
+mv source testbak
+cp -r example source
+# copy unittests from stub to example
+# can't do >> *.d, so get the filename of the source file.
+src=$(ls source/*.d)
+sed -n '/unittest/,$ p' testbak/*.d >> $src
+if ! grep -q unittest $src ; then
+  echo "$dir failed to copy tests into example"
+  status=1
+fi
+# find any line that contains both `if` and `allTestsEnabled`,
+# and change the `allTestsEnabled` in that line to `true`
+# Thus, making all tests run.
+sed -i'' -e 's/if\(.*\)allTestsEnabled\(.*\)/if\1true\2/' $src
+if ! dub test ; then
+  echo "$dir test has failed"
+  status=1
+fi
+# Restore so that if we are running locally,
+# we don't accidentally commit the directory moves.
+rm -r source
+mv testbak source
+
+exit $status
